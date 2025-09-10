@@ -1,0 +1,7 @@
+{
+  "name": "kul/dashboard",
+  "description": "PHP dashboard for Vercel",
+  "require": {
+    "php": ">=7.4"
+  }
+}
