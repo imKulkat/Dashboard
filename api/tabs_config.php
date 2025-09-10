@@ -1,5 +1,5 @@
 <?php
-// Role-based tab definitions
+// Centralized role-based tab definitions
 return [
     'user' => [
         'Q&A' => '/tabs/qa.php',
