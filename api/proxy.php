@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 session_start();
-require_once __DIR__ . '/config.php'; // Supabase config
+require_once __DIR__ . '/config.php';
 
 if (!isset($_SESSION['username'])) {
     http_response_code(403);
@@ -15,32 +15,15 @@ if (!$user) {
 }
 
 $role = $user['role'] ?? 'user';
+$TABS = require __DIR__ . '/tabs_config.php';
 
-// Define allowed tabs per role (same as homepage.php)
-$TABS = [
-    'user' => [
-        'classicgames' => 'https://playclassic.games/',
-        'eaglrcraft'   => 'https://eaglercraft.com/mc/1.8.8',
-        'codzombies'   => 'https://nzp.gay/'
-    ],
-    'admin' => [
-        'classicgames' => 'https://playclassic.games/',
-        'eaglrcraft'   => 'https://eaglercraft.com/mc/1.8.8',
-        'codzombies'   => 'https://nzp.gay/',
-        'addicting'    => 'https://www.addictinggames.com/'
-    ],
-    'owner' => [
-        'classicgames' => 'https://playclassic.games/',
-        'eaglrcraft'   => 'https://eaglercraft.com/mc/1.8.8',
-        'codzombies'   => 'https://nzp.gay/',
-        'addicting'    => 'https://www.addictinggames.com/',
-        'google'       => 'https://www.google.com/',
-        'webmin'       => 'https://192.168.1.131:10000/sysinfo.cgi?xnavigation=1',
-        'chatgpt'      => 'https://chat.openai.com/'
-    ]
-];
-
-$allowedTabs = $TABS[$role] ?? $TABS['user'];
+// Convert label=>URL to key=>URL for proxy lookups
+$allowedTabs = [];
+foreach ($TABS[$role] ?? $TABS['user'] as $label => $url) {
+    if (preg_match('/tab=([^&]+)/', $url, $m)) {
+        $allowedTabs[$m[1]] = preg_replace('/\?.*/', '', $url);
+    }
+}
 
 if (!isset($_GET['tab'])) {
     http_response_code(400);
@@ -58,13 +41,12 @@ $targetBase = rtrim($allowedTabs[$tab], '/') . '/';
 $reqPath = ltrim((string)($_GET['p'] ?? ''), '/');
 $targetUrl = $targetBase . $reqPath;
 
-// Fetch the target content
 $ch = curl_init($targetUrl);
 curl_setopt_array($ch, [
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_FOLLOWLOCATION => true,
     CURLOPT_HEADER => true,
-    CURLOPT_SSL_VERIFYPEER => false, // Set to true if upstream has valid SSL
+    CURLOPT_SSL_VERIFYPEER => false,
     CURLOPT_TIMEOUT => 25,
     CURLOPT_ENCODING => '',
     CURLOPT_USERAGENT => $_SERVER['HTTP_USER_AGENT'] ?? 'Mozilla/5.0',
@@ -84,7 +66,6 @@ $body = substr($resp, $headerSize);
 $contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE) ?: 'text/html; charset=utf-8';
 curl_close($ch);
 
-// Inject <base> tag for relative assets
 if (stripos($contentType, 'text/html') !== false) {
     $baseTag = '<base href="' . htmlspecialchars($targetBase, ENT_QUOTES, 'UTF-8') . '">';
     if (stripos($body, '<head') !== false) {
