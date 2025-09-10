@@ -1,56 +1,62 @@
 <?php
 declare(strict_types=1);
+session_start();
 
-define('USERS_FILE', __DIR__ . '/users.json');
-define('TABS_DIR', __DIR__ . '/tabs');
+require __DIR__ . '/../vendor/autoload.php'; // Composer autoload
 
-function load_users(): array {
-    if (!file_exists(USERS_FILE)) {
-        file_put_contents(USERS_FILE, json_encode([], JSON_PRETTY_PRINT));
-        @chmod(USERS_FILE, 0664);
-    }
-    $raw = file_get_contents(USERS_FILE);
-    $data = json_decode($raw, true);
-    if (!is_array($data)) $data = [];
-    return array_values($data);
-}
+use PHPSupabase\Service;
 
-function save_users(array $users): void {
-    file_put_contents(USERS_FILE, json_encode($users, JSON_PRETTY_PRINT));
-    @chmod(USERS_FILE, 0664);
-}
+// === CONFIGURE THESE ===
+$SUPABASE_URL = 'https://YOUR_PROJECT_ID.supabase.co';
+$SUPABASE_KEY = 'YOUR_ANON_PUBLIC_KEY';
+// =======================
 
+// Create Supabase service
+$supabase = new Service($SUPABASE_KEY, $SUPABASE_URL);
+$db = $supabase->createDatabase();
+
+/**
+ * Fetch a user by username
+ */
 function find_user(string $username): ?array {
-    foreach (load_users() as $u) {
-        if (strcasecmp($u['username'] ?? '', $username) === 0) return $u;
+    global $db;
+    $result = $db->from('users')
+                 ->select('*')
+                 ->eq('username', $username)
+                 ->execute();
+
+    if (!empty($result) && isset($result[0])) {
+        return $result[0];
     }
     return null;
 }
 
-function upsert_user(array $user): void {
-    $users = load_users();
-    $found = false;
-    foreach ($users as &$u) {
-        if (strcasecmp($u['username'] ?? '', $user['username']) === 0) {
-            $u = array_merge($u, $user);
-            $found = true;
-            break;
-        }
-    }
-    if (!$found) $users[] = $user;
-    save_users($users);
+/**
+ * Add a new user
+ */
+function add_user(string $username, string $password, string $role = 'user'): bool {
+    global $db;
+    $hash = password_hash($password, PASSWORD_DEFAULT);
+
+    $result = $db->from('users')
+                 ->insert([
+                     'username' => $username,
+                     'password_hash' => $hash,
+                     'role' => $role
+                 ])
+                 ->execute();
+
+    return !empty($result);
 }
 
-// Bootstrap owner
-$hasOwner = false;
-foreach (load_users() as $u) {
-    if (($u['role'] ?? 'user') === 'owner') { $hasOwner = true; break; }
-}
-if (!$hasOwner) {
-    upsert_user([
-        'username' => 'owner',
-        'password' => password_hash('owner123', PASSWORD_DEFAULT),
-        'role' => 'owner',
-        'created_at' => date('c')
-    ]);
+/**
+ * Verify login credentials
+ */
+function verify_login(string $username, string $password): bool {
+    $user = find_user($username);
+    if ($user && password_verify($password, $user['password_hash'])) {
+        $_SESSION['username'] = $username;
+        return true;
+    }
+    return false;
 }
