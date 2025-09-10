@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 session_start();
-require_once __DIR__ . '/config.php'; // Supabase config
+require_once __DIR__ . '/config.php';
 
 if (!isset($_SESSION['username'])) {
     header('Location: /login');
@@ -12,48 +12,13 @@ $username = $_SESSION['username'];
 $user = find_user($username);
 
 if (!$user) {
-    // User not found in DB — force logout
     session_destroy();
     header('Location: /login');
     exit;
 }
 
 $role = $user['role'] ?? 'user';
-
-// Define tabs per role
-$TABS = [
-    'user' => [
-        'Q&A' => '/tabs/qa.php',
-        'Website Request' => '/tabs/requests.php',
-        'Analytics' => '/tabs/analytics.php',
-        'Classic Games' => '/proxy.php?tab=classicgames',
-        'EaglrCraft' => '/proxy.php?tab=eaglrcraft',
-        'COD Zombies' => '/proxy.php?tab=codzombies'
-    ],
-    'admin' => [
-        'Q&A' => '/tabs/qa.php',
-        'Website Request' => '/tabs/requests.php',
-        'Analytics' => '/tabs/analytics.php',
-        'Classic Games' => '/proxy.php?tab=classicgames',
-        'EaglrCraft' => '/proxy.php?tab=eaglrcraft',
-        'COD Zombies' => '/proxy.php?tab=codzombies',
-        'Addicting Games' => '/proxy.php?tab=addicting'
-    ],
-    'owner' => [
-        'Q&A' => '/tabs/qa.php',
-        'Website Request' => '/tabs/requests.php',
-        'Analytics' => '/tabs/analytics.php',
-        'Classic Games' => '/proxy.php?tab=classicgames',
-        'EaglrCraft' => '/proxy.php?tab=eaglrcraft',
-        'COD Zombies' => '/proxy.php?tab=codzombies',
-        'Addicting Games' => '/proxy.php?tab=addicting',
-        'Google' => '/proxy.php?tab=google',
-        'Webmin' => '/proxy.php?tab=webmin',
-        'ChatGPT' => '/proxy.php?tab=chatgpt'
-    ]
-];
-
-// Pick tabs for this role
+$TABS = require __DIR__ . '/tabs_config.php';
 $tabsForRole = $TABS[$role] ?? $TABS['user'];
 ?>
 <!DOCTYPE html>
